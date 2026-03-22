@@ -35,7 +35,7 @@ export function HUD({ isLocked, requestLock, connected }: Props) {
           </div>
           <div style={{ fontSize: 18, fontFamily: "monospace" }}>Click to Play</div>
           <div style={{ fontSize: 13, color: "#aaa", fontFamily: "monospace" }}>
-            WASD to move · Mouse to look · ESC to release cursor
+            WASD to move · Space to jump · Mouse to look · ESC to release cursor
           </div>
           <div
             style={{
