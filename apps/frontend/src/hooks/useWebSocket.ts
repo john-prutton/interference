@@ -1,6 +1,9 @@
 import { useEffect, useRef, useCallback } from "react";
 import type { ClientMessage, ServerMessage } from "@interference/domain";
-import { useGameStore } from "../store/gameStore";
+import { useGameStore, snapshotPushers } from "../store/gameStore";
+
+/** Client-to-server clock offset: add to Date.now() to get an estimate of server time. */
+export const clockOffsetRef = { current: 0 };
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
@@ -12,8 +15,9 @@ export function useWebSocket() {
     wsRef.current = ws;
 
     ws.onopen = () => {
-      const msg: ClientMessage = { type: "join" };
-      ws.send(JSON.stringify(msg));
+      ws.send(JSON.stringify({ type: "join" } satisfies ClientMessage));
+      // Measure RTT to estimate clock offset (one sample is sufficient for a game session)
+      ws.send(JSON.stringify({ type: "ping", clientTime: Date.now() } satisfies ClientMessage));
     };
 
     ws.onmessage = (event: MessageEvent) => {
@@ -35,6 +39,15 @@ export function useWebSocket() {
             break;
           case "world_state":
             s.updateRemotePlayers(msg.players, s.localPlayerId);
+            // Distribute timestamped snapshots to RemotePlayer interpolation buffers
+            for (const p of msg.players) {
+              if (p.id === s.localPlayerId) continue;
+              snapshotPushers.get(p.id)?.({
+                serverTime: msg.serverTime,
+                position: p.position,
+                yaw: p.yaw,
+              });
+            }
             break;
           case "hit":
             if (msg.victimId === s.localPlayerId) {
@@ -45,6 +58,11 @@ export function useWebSocket() {
               s.addNotification("Enemy eliminated!");
             }
             break;
+          case "pong": {
+            const rtt = Date.now() - msg.clientTime;
+            clockOffsetRef.current = msg.serverTime + rtt / 2 - Date.now();
+            break;
+          }
         }
       } catch {
         // Ignore malformed messages
@@ -70,7 +88,12 @@ export function useWebSocket() {
   const sendShoot = useCallback((yaw: number, pitch: number) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    const msg: ClientMessage = { type: "shoot", yaw, pitch };
+    const msg: ClientMessage = {
+      type: "shoot",
+      yaw,
+      pitch,
+      shootTime: Date.now() + clockOffsetRef.current,
+    };
     ws.send(JSON.stringify(msg));
   }, []);
 

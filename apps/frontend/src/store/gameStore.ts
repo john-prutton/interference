@@ -1,6 +1,15 @@
 import { create } from "zustand";
 import type { PlayerState, Vec3 } from "@interference/domain";
 
+// Module-level (not in Zustand) — avoids React re-renders on the 60fps hot path.
+export interface PositionSnapshot {
+  serverTime: number;
+  position: Vec3;
+  yaw: number;
+}
+/** RemotePlayer components register a push callback here keyed by player id. */
+export const snapshotPushers = new Map<string, (snap: PositionSnapshot) => void>();
+
 export interface Notification {
   id: number;
   text: string;

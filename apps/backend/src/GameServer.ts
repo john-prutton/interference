@@ -55,10 +55,23 @@ export class GameServer {
             this.registry.broadcast({
               type: "world_state",
               players: this.registry.getAll(),
+              serverTime: Date.now(),
             });
+
+          } else if (msg.type === "ping") {
+            this.registry.sendTo(playerId, {
+              type: "pong",
+              clientTime: msg.clientTime,
+              serverTime: Date.now(),
+            });
+
           } else if (msg.type === "shoot") {
             const shooter = this.registry.getState(playerId);
             if (!shooter) return;
+
+            // Clamp shootTime to a safe rewind window (anti-cheat guard)
+            const now = Date.now();
+            const targetServerTime = Math.max(now - 1000, Math.min(now, msg.shootTime));
 
             // Ray origin: shooter's eye position
             const ox = shooter.position.x;
@@ -71,12 +84,14 @@ export class GameServer {
             const dy = Math.sin(msg.pitch);
             const dz = -Math.cos(msg.yaw) * cosPitch;
 
-            // Test each other player's hit sphere (center = chest, radius = 0.7)
+            // Test each other player using their rewound (historical) position
             let victimId: string | null = null;
             for (const target of this.registry.getAll()) {
               if (target.id === playerId) continue;
+              const rewindPos = this.registry.getPositionAt(target.id, targetServerTime)
+                ?? target.position;
               if (rayHitsSphere(ox, oy, oz, dx, dy, dz,
-                target.position.x, target.position.y + 0.8, target.position.z, 0.7)) {
+                rewindPos.x, rewindPos.y + 0.8, rewindPos.z, 0.7)) {
                 victimId = target.id;
                 break;
               }
@@ -86,7 +101,11 @@ export class GameServer {
               const newPosition = this.registry.respawnPlayer(victimId);
               if (newPosition) {
                 this.registry.broadcast({ type: "hit", shooterId: playerId, victimId, newPosition });
-                this.registry.broadcast({ type: "world_state", players: this.registry.getAll() });
+                this.registry.broadcast({
+                  type: "world_state",
+                  players: this.registry.getAll(),
+                  serverTime: Date.now(),
+                });
               }
             }
           }

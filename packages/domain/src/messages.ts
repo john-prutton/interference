@@ -15,9 +15,20 @@ export interface ClientShootMessage {
   type: "shoot";
   yaw: number;
   pitch: number;
+  /** Client's best estimate of server time when the shot was fired (Date.now() + clockOffset). */
+  shootTime: number;
 }
 
-export type ClientMessage = ClientJoinMessage | ClientMoveMessage | ClientShootMessage;
+export interface ClientPingMessage {
+  type: "ping";
+  clientTime: number;
+}
+
+export type ClientMessage =
+  | ClientJoinMessage
+  | ClientMoveMessage
+  | ClientShootMessage
+  | ClientPingMessage;
 
 export interface ServerWelcomeMessage {
   type: "welcome";
@@ -39,6 +50,7 @@ export interface ServerPlayerLeftMessage {
 export interface ServerWorldStateMessage {
   type: "world_state";
   players: PlayerState[];
+  serverTime: number;
 }
 
 export interface ServerHitMessage {
@@ -48,9 +60,16 @@ export interface ServerHitMessage {
   newPosition: Vec3;
 }
 
+export interface ServerPongMessage {
+  type: "pong";
+  clientTime: number;
+  serverTime: number;
+}
+
 export type ServerMessage =
   | ServerWelcomeMessage
   | ServerPlayerJoinedMessage
   | ServerPlayerLeftMessage
   | ServerWorldStateMessage
-  | ServerHitMessage;
+  | ServerHitMessage
+  | ServerPongMessage;
