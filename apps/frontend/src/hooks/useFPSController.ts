@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { useGameStore } from "../store/gameStore";
 
 const MOVE_SPEED = 8.0;
 const MOUSE_SENSITIVITY = 0.002;
@@ -18,12 +17,8 @@ export function useFPSController({ isLocked, sendMove }: Props) {
   const yaw = useRef(0);
   const pitch = useRef(0);
   const position = useRef(new THREE.Vector3(0, 1, 0));
-  const lastTime = useRef<number | null>(null);
   const isLockedRef = useRef(isLocked);
   isLockedRef.current = isLocked;
-
-  const setLocalPosition = useGameStore((s) => s.setLocalPosition);
-  const setLocalRotation = useGameStore((s) => s.setLocalRotation);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => keys.current.add(e.code);
@@ -69,10 +64,9 @@ export function useFPSController({ isLocked, sendMove }: Props) {
     camera.rotation.y = yaw.current;
     camera.rotation.x = pitch.current;
 
-    // Sync store
-    const pos = { x: position.current.x, y: position.current.y, z: position.current.z };
-    setLocalPosition(pos);
-    setLocalRotation(yaw.current, pitch.current);
-    sendMove(pos, yaw.current, pitch.current);
+    if (isLockedRef.current) {
+      const pos = { x: position.current.x, y: position.current.y, z: position.current.z };
+      sendMove(pos, yaw.current, pitch.current);
+    }
   });
 }

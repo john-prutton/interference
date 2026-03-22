@@ -4,9 +4,8 @@ import { useGameStore } from "../store/gameStore";
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
-  const store = useGameStore();
-  const storeRef = useRef(store);
-  storeRef.current = store;
+  // Only subscribe to `connected` — avoids re-rendering App on every position update
+  const connected = useGameStore((s) => s.connected);
 
   useEffect(() => {
     const ws = new WebSocket(`ws://${window.location.host}/ws`);
@@ -20,7 +19,9 @@ export function useWebSocket() {
     ws.onmessage = (event: MessageEvent) => {
       try {
         const msg: ServerMessage = JSON.parse(event.data as string);
-        const s = storeRef.current;
+        // Use getState() so we always read live Zustand state, not a stale React snapshot.
+        // This matters when world_state arrives before React has re-rendered after welcome.
+        const s = useGameStore.getState();
         switch (msg.type) {
           case "welcome":
             s.setLocalPlayer(msg.yourId, msg.yourColor);
@@ -41,8 +42,8 @@ export function useWebSocket() {
       }
     };
 
-    ws.onclose = () => storeRef.current.setConnected(false);
-    ws.onerror = () => storeRef.current.setConnected(false);
+    ws.onclose = () => useGameStore.getState().setConnected(false);
+    ws.onerror = () => useGameStore.getState().setConnected(false);
 
     return () => ws.close();
   }, []);
@@ -57,5 +58,5 @@ export function useWebSocket() {
     []
   );
 
-  return { connected: store.connected, sendMove };
+  return { connected, sendMove };
 }
