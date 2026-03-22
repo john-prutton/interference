@@ -24,6 +24,16 @@ export class GameServer {
     this.registry = new PlayerRegistry();
     this.wss = new WebSocketServer({ port, host });
 
+    // 20 Hz server tick — broadcast world_state to all clients on a fixed interval
+    // instead of on every move message, reducing O(n²) message traffic.
+    setInterval(() => {
+      this.registry.broadcast({
+        type: "world_state",
+        players: this.registry.getAll(),
+        serverTime: Date.now(),
+      });
+    }, 50);
+
     this.wss.on("connection", (ws) => {
       const playerId = this.registry.add(ws);
       const playerState = this.registry.getState(playerId)!;
@@ -52,11 +62,7 @@ export class GameServer {
               yaw: msg.yaw,
               pitch: msg.pitch,
             });
-            this.registry.broadcast({
-              type: "world_state",
-              players: this.registry.getAll(),
-              serverTime: Date.now(),
-            });
+            // world_state is now broadcast by the 20 Hz tick, not per move.
 
           } else if (msg.type === "ping") {
             this.registry.sendTo(playerId, {
@@ -104,15 +110,20 @@ export class GameServer {
             );
 
             if (victimId) {
-              const newPosition = this.registry.respawnPlayer(victimId);
-              if (newPosition) {
-                this.registry.broadcast({ type: "hit", shooterId: playerId, victimId, newPosition });
-                this.registry.broadcast({
-                  type: "world_state",
-                  players: this.registry.getAll(),
-                  serverTime: Date.now(),
-                });
+              const killed = this.registry.damagePlayer(victimId, 25);
+              if (killed) {
+                const newPosition = this.registry.respawnPlayer(victimId);
+                if (newPosition) {
+                  this.registry.addKill(playerId);
+                  this.registry.broadcast({ type: "hit", shooterId: playerId, victimId, newPosition });
+                }
               }
+              // Broadcast immediately after any hit so victims see HP drop without waiting for tick.
+              this.registry.broadcast({
+                type: "world_state",
+                players: this.registry.getAll(),
+                serverTime: Date.now(),
+              });
             }
           }
         } catch {

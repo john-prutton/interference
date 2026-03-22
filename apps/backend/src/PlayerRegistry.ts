@@ -50,6 +50,9 @@ export class PlayerRegistry {
       yaw: 0,
       pitch: 0,
       color,
+      hp: 100,
+      kills: 0,
+      deaths: 0,
     };
     this.players.set(id, { state, ws, history: [] });
     return id;
@@ -102,13 +105,28 @@ export class PlayerRegistry {
     };
   }
 
+  /** Returns true if the player's HP just reached 0 (killed). */
+  damagePlayer(id: string, amount: number): boolean {
+    const entry = this.players.get(id);
+    if (!entry) return false;
+    const newHp = Math.max(0, entry.state.hp - amount);
+    entry.state = { ...entry.state, hp: newHp };
+    return newHp === 0;
+  }
+
+  addKill(id: string): void {
+    const entry = this.players.get(id);
+    if (!entry) return;
+    entry.state = { ...entry.state, kills: entry.state.kills + 1 };
+  }
+
   respawnPlayer(id: string): Vec3 | undefined {
     const entry = this.players.get(id);
     if (!entry) return undefined;
     const spawn = SPAWN_POINTS[Math.floor(Math.random() * SPAWN_POINTS.length)]!;
     // Mutate position directly — intentionally NOT recorded in history so in-flight
     // shots still test against pre-respawn positions.
-    entry.state = { ...entry.state, position: { ...spawn } };
+    entry.state = { ...entry.state, position: { ...spawn }, hp: 100, deaths: entry.state.deaths + 1 };
     return spawn;
   }
 

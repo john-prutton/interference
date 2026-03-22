@@ -22,6 +22,9 @@ interface GameStore {
   localPosition: { x: number; y: number; z: number };
   localYaw: number;
   localPitch: number;
+  localHp: number;
+  localKills: number;
+  localDeaths: number;
   remotePlayers: Map<string, PlayerState>;
   connected: boolean;
   pendingRespawn: Vec3 | null;
@@ -31,6 +34,7 @@ interface GameStore {
   setLocalPlayer: (id: string, color: string) => void;
   setLocalPosition: (pos: { x: number; y: number; z: number }) => void;
   setLocalRotation: (yaw: number, pitch: number) => void;
+  setLocalStats: (hp: number, kills: number, deaths: number) => void;
   setConnected: (v: boolean) => void;
   updateRemotePlayers: (players: PlayerState[], localId: string | null) => void;
   addRemotePlayer: (player: PlayerState) => void;
@@ -48,6 +52,9 @@ export const useGameStore = create<GameStore>((set) => ({
   localPosition: { x: 0, y: 1, z: 0 },
   localYaw: 0,
   localPitch: 0,
+  localHp: 100,
+  localKills: 0,
+  localDeaths: 0,
   remotePlayers: new Map(),
   connected: false,
   pendingRespawn: null,
@@ -60,6 +67,8 @@ export const useGameStore = create<GameStore>((set) => ({
   setLocalPosition: (pos) => set({ localPosition: pos }),
 
   setLocalRotation: (yaw, pitch) => set({ localYaw: yaw, localPitch: pitch }),
+
+  setLocalStats: (hp, kills, deaths) => set({ localHp: hp, localKills: kills, localDeaths: deaths }),
 
   setConnected: (v) => set({ connected: v }),
 

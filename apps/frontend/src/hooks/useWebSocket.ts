@@ -49,6 +49,11 @@ export function useWebSocket() {
                 yaw: p.yaw,
               });
             }
+            // Update local player's HP and K/D from server-authoritative state
+            {
+              const localP = msg.players.find((p) => p.id === s.localPlayerId);
+              if (localP) s.setLocalStats(localP.hp, localP.kills, localP.deaths);
+            }
             break;
           case "hit":
             if (msg.victimId === s.localPlayerId) {

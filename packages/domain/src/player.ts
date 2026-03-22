@@ -10,4 +10,7 @@ export interface PlayerState {
   yaw: number;
   pitch: number;
   color: string;
+  hp: number;
+  kills: number;
+  deaths: number;
 }

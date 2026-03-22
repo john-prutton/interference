@@ -1,4 +1,6 @@
+import { useState, useEffect } from "react";
 import { useGameStore } from "../store/gameStore";
+import { Scoreboard } from "./Scoreboard";
 
 interface Props {
   isLocked: boolean;
@@ -9,10 +11,23 @@ interface Props {
 export function HUD({ isLocked, requestLock, connected }: Props) {
   const notifications = useGameStore((s) => s.notifications);
   const hitAt = useGameStore((s) => s.hitAt);
+  const localHp = useGameStore((s) => s.localHp);
+  const [showScoreboard, setShowScoreboard] = useState(false);
 
   const now = Date.now();
   const damageAlpha = hitAt > 0 ? Math.max(0, 1 - (now - hitAt) / 500) : 0;
   const visibleNotifs = notifications.filter((n) => now - n.createdAt < 3000);
+
+  useEffect(() => {
+    if (!isLocked) { setShowScoreboard(false); return; }
+    const onDown = (e: KeyboardEvent) => { if (e.code === "Tab") { e.preventDefault(); setShowScoreboard(true); } };
+    const onUp   = (e: KeyboardEvent) => { if (e.code === "Tab") setShowScoreboard(false); };
+    window.addEventListener("keydown", onDown);
+    window.addEventListener("keyup", onUp);
+    return () => { window.removeEventListener("keydown", onDown); window.removeEventListener("keyup", onUp); };
+  }, [isLocked]);
+
+  const hpColor = localHp > 60 ? "#2ecc71" : localHp > 30 ? "#f39c12" : "#e74c3c";
 
   return (
     <div
@@ -146,6 +161,44 @@ export function HUD({ isLocked, requestLock, connected }: Props) {
             </div>
           )}
 
+          {/* HP bar — bottom center */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 20,
+              left: "50%",
+              transform: "translateX(-50%)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 4,
+              pointerEvents: "none",
+            }}
+          >
+            <div
+              style={{
+                width: 160,
+                height: 8,
+                background: "rgba(255,255,255,0.15)",
+                borderRadius: 4,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width: `${localHp}%`,
+                  height: "100%",
+                  background: hpColor,
+                  borderRadius: 4,
+                  transition: "width 0.1s ease, background 0.3s ease",
+                }}
+              />
+            </div>
+            <div style={{ fontSize: 11, fontFamily: "monospace", color: hpColor }}>
+              {localHp} HP
+            </div>
+          </div>
+
           {/* Status */}
           <div
             style={{
@@ -159,6 +212,9 @@ export function HUD({ isLocked, requestLock, connected }: Props) {
           >
             {connected ? "● Connected" : "● Disconnected"}
           </div>
+
+          {/* Scoreboard */}
+          {showScoreboard && <Scoreboard />}
         </>
       )}
     </div>
