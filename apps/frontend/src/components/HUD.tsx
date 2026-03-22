@@ -1,3 +1,5 @@
+import { useGameStore } from "../store/gameStore";
+
 interface Props {
   isLocked: boolean;
   requestLock: () => void;
@@ -5,6 +7,13 @@ interface Props {
 }
 
 export function HUD({ isLocked, requestLock, connected }: Props) {
+  const notifications = useGameStore((s) => s.notifications);
+  const hitAt = useGameStore((s) => s.hitAt);
+
+  const now = Date.now();
+  const damageAlpha = hitAt > 0 ? Math.max(0, 1 - (now - hitAt) / 500) : 0;
+  const visibleNotifs = notifications.filter((n) => now - n.createdAt < 3000);
+
   return (
     <div
       style={{
@@ -14,6 +23,18 @@ export function HUD({ isLocked, requestLock, connected }: Props) {
         userSelect: "none",
       }}
     >
+      {/* Red damage flash */}
+      {damageAlpha > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: `rgba(200,0,0,${damageAlpha * 0.45})`,
+            pointerEvents: "none",
+          }}
+        />
+      )}
+
       {!isLocked && (
         <div
           onClick={requestLock}
@@ -35,7 +56,7 @@ export function HUD({ isLocked, requestLock, connected }: Props) {
           </div>
           <div style={{ fontSize: 18, fontFamily: "monospace" }}>Click to Play</div>
           <div style={{ fontSize: 13, color: "#aaa", fontFamily: "monospace" }}>
-            WASD to move · Space to jump · Mouse to look · ESC to release cursor
+            WASD to move · Space to jump · Click to shoot · Mouse to look · ESC to release cursor
           </div>
           <div
             style={{
@@ -87,6 +108,43 @@ export function HUD({ isLocked, requestLock, connected }: Props) {
               }}
             />
           </div>
+
+          {/* Kill feed — top right */}
+          {visibleNotifs.length > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                top: 16,
+                right: 16,
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                alignItems: "flex-end",
+              }}
+            >
+              {visibleNotifs.map((n) => {
+                const age = now - n.createdAt;
+                const opacity = age < 2500 ? 1 : Math.max(0, 1 - (age - 2500) / 500);
+                const isKill = n.text.startsWith("Enemy");
+                return (
+                  <div
+                    key={n.id}
+                    style={{
+                      fontFamily: "monospace",
+                      fontSize: 14,
+                      color: isKill ? "#2ecc71" : "#e74c3c",
+                      background: "rgba(0,0,0,0.5)",
+                      padding: "3px 8px",
+                      borderRadius: 3,
+                      opacity,
+                    }}
+                  >
+                    {n.text}
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Status */}
           <div

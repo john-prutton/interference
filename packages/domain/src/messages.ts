@@ -1,4 +1,4 @@
-import type { PlayerState } from "./player";
+import type { PlayerState, Vec3 } from "./player";
 
 export interface ClientJoinMessage {
   type: "join";
@@ -11,7 +11,13 @@ export interface ClientMoveMessage {
   pitch: PlayerState["pitch"];
 }
 
-export type ClientMessage = ClientJoinMessage | ClientMoveMessage;
+export interface ClientShootMessage {
+  type: "shoot";
+  yaw: number;
+  pitch: number;
+}
+
+export type ClientMessage = ClientJoinMessage | ClientMoveMessage | ClientShootMessage;
 
 export interface ServerWelcomeMessage {
   type: "welcome";
@@ -35,8 +41,16 @@ export interface ServerWorldStateMessage {
   players: PlayerState[];
 }
 
+export interface ServerHitMessage {
+  type: "hit";
+  shooterId: string;
+  victimId: string;
+  newPosition: Vec3;
+}
+
 export type ServerMessage =
   | ServerWelcomeMessage
   | ServerPlayerJoinedMessage
   | ServerPlayerLeftMessage
-  | ServerWorldStateMessage;
+  | ServerWorldStateMessage
+  | ServerHitMessage;

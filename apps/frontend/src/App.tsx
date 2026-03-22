@@ -6,7 +6,7 @@ import { HUD } from "./components/HUD";
 
 export default function App() {
   const { isLocked, requestLock } = usePointerLock();
-  const { connected, sendMove } = useWebSocket();
+  const { connected, sendMove, sendShoot } = useWebSocket();
 
   return (
     <>
@@ -14,7 +14,7 @@ export default function App() {
         camera={{ fov: 75, near: 0.1, far: 1000, position: [0, 1.6, 0] }}
         style={{ width: "100vw", height: "100vh" }}
       >
-        <Scene isLocked={isLocked} sendMove={sendMove} />
+        <Scene isLocked={isLocked} sendMove={sendMove} sendShoot={sendShoot} />
       </Canvas>
       <HUD isLocked={isLocked} requestLock={requestLock} connected={connected} />
     </>

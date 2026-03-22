@@ -1,6 +1,18 @@
 import { v4 as uuidv4 } from "uuid";
 import type WebSocket from "ws";
-import type { PlayerState, ServerMessage } from "@interference/domain";
+import type { PlayerState, ServerMessage, Vec3 } from "@interference/domain";
+
+const SPAWN_POINTS: Vec3[] = [
+  { x: 0, y: 1, z: 0 },
+  { x: 12, y: 1, z: 12 },
+  { x: -12, y: 1, z: 12 },
+  { x: 12, y: 1, z: -12 },
+  { x: -12, y: 1, z: -12 },
+  { x: 18, y: 1, z: 0 },
+  { x: -18, y: 1, z: 0 },
+  { x: 0, y: 1, z: 18 },
+  { x: 0, y: 1, z: -18 },
+];
 
 const PLAYER_COLORS = [
   "#e74c3c",
@@ -61,6 +73,14 @@ export class PlayerRegistry {
         entry.ws.send(data);
       }
     }
+  }
+
+  respawnPlayer(id: string): Vec3 | undefined {
+    const entry = this.players.get(id);
+    if (!entry) return undefined;
+    const spawn = SPAWN_POINTS[Math.floor(Math.random() * SPAWN_POINTS.length)]!;
+    entry.state = { ...entry.state, position: { ...spawn } };
+    return spawn;
   }
 
   sendTo(id: string, message: ServerMessage): void {

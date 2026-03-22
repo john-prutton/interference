@@ -36,6 +36,15 @@ export function useWebSocket() {
           case "world_state":
             s.updateRemotePlayers(msg.players, s.localPlayerId);
             break;
+          case "hit":
+            if (msg.victimId === s.localPlayerId) {
+              s.setPendingRespawn(msg.newPosition);
+              s.setHitAt(Date.now());
+              s.addNotification("You were eliminated!");
+            } else if (msg.shooterId === s.localPlayerId) {
+              s.addNotification("Enemy eliminated!");
+            }
+            break;
         }
       } catch {
         // Ignore malformed messages
@@ -58,5 +67,12 @@ export function useWebSocket() {
     []
   );
 
-  return { connected, sendMove };
+  const sendShoot = useCallback((yaw: number, pitch: number) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const msg: ClientMessage = { type: "shoot", yaw, pitch };
+    ws.send(JSON.stringify(msg));
+  }, []);
+
+  return { connected, sendMove, sendShoot };
 }

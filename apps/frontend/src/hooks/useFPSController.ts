@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import { useGameStore } from "../store/gameStore";
 
 const MOVE_SPEED = 8.0;
 const MOUSE_SENSITIVITY = 0.002;
@@ -8,19 +9,22 @@ const PITCH_LIMIT = Math.PI / 2 * 0.9;
 const JUMP_VELOCITY = 8.0;
 const GRAVITY = 20.0;
 const GROUND_Y = 1.0;
+const SHOOT_COOLDOWN_MS = 150;
 
 interface Props {
   isLocked: boolean;
   sendMove: (pos: { x: number; y: number; z: number }, yaw: number, pitch: number) => void;
+  sendShoot: (yaw: number, pitch: number) => void;
 }
 
-export function useFPSController({ isLocked, sendMove }: Props) {
+export function useFPSController({ isLocked, sendMove, sendShoot }: Props) {
   const { camera } = useThree();
   const keys = useRef(new Set<string>());
   const yaw = useRef(0);
   const pitch = useRef(0);
   const position = useRef(new THREE.Vector3(0, GROUND_Y, 0));
   const verticalVelocity = useRef(0);
+  const lastShotAt = useRef(0);
   const isLockedRef = useRef(isLocked);
   isLockedRef.current = isLocked;
 
@@ -38,22 +42,39 @@ export function useFPSController({ isLocked, sendMove }: Props) {
     const onPointerLockChange = () => {
       if (!document.pointerLockElement) keys.current.clear();
     };
+    const onMouseDown = (e: MouseEvent) => {
+      if (!isLockedRef.current || e.button !== 0) return;
+      const now = Date.now();
+      if (now - lastShotAt.current < SHOOT_COOLDOWN_MS) return;
+      lastShotAt.current = now;
+      sendShoot(yaw.current, pitch.current);
+    };
 
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("mousedown", onMouseDown);
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("pointerlockchange", onPointerLockChange);
 
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("mousedown", onMouseDown);
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("pointerlockchange", onPointerLockChange);
     };
-  }, []);
+  }, [sendShoot]);
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.1);
+
+    // Apply pending respawn from server (triggered by a hit)
+    const { pendingRespawn, setPendingRespawn } = useGameStore.getState();
+    if (pendingRespawn) {
+      position.current.set(pendingRespawn.x, pendingRespawn.y, pendingRespawn.z);
+      verticalVelocity.current = 0;
+      setPendingRespawn(null);
+    }
 
     if (isLockedRef.current) {
       const k = keys.current;
