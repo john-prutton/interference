@@ -20,9 +20,9 @@ export class GameServer {
   private wss: WebSocketServer;
   private registry: PlayerRegistry;
 
-  constructor(port: number) {
+  constructor(port: number, host = "0.0.0.0") {
     this.registry = new PlayerRegistry();
-    this.wss = new WebSocketServer({ port });
+    this.wss = new WebSocketServer({ port, host });
 
     this.wss.on("connection", (ws) => {
       const playerId = this.registry.add(ws);

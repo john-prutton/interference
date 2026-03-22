@@ -1,0 +1,9 @@
+.git
+.github
+node_modules
+apps/frontend
+.turbo
+*.tsbuildinfo
+**/.env.local
+**/dist
+**/node_modules
