@@ -66,10 +66,18 @@ export interface ServerPongMessage {
   serverTime: number;
 }
 
+export interface ServerShotFiredMessage {
+  type: "shot_fired";
+  shooterId: string;
+  origin: Vec3;
+  direction: Vec3;
+}
+
 export type ServerMessage =
   | ServerWelcomeMessage
   | ServerPlayerJoinedMessage
   | ServerPlayerLeftMessage
   | ServerWorldStateMessage
   | ServerHitMessage
-  | ServerPongMessage;
+  | ServerPongMessage
+  | ServerShotFiredMessage;

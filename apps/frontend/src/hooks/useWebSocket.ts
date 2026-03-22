@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import type { ClientMessage, ServerMessage } from "@interference/domain";
 import { useGameStore, snapshotPushers } from "../store/gameStore";
+import { emitTracer } from "../map/mapData";
 
 /** Client-to-server clock offset: add to Date.now() to get an estimate of server time. */
 export const clockOffsetRef = { current: 0 };
@@ -63,6 +64,9 @@ export function useWebSocket() {
             clockOffsetRef.current = msg.serverTime + rtt / 2 - Date.now();
             break;
           }
+          case "shot_fired":
+            emitTracer(msg.origin, msg.direction);
+            break;
         }
       } catch {
         // Ignore malformed messages

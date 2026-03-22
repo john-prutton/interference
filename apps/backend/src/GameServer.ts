@@ -97,6 +97,12 @@ export class GameServer {
               }
             }
 
+            // Broadcast tracer to all other clients
+            this.registry.broadcast(
+              { type: "shot_fired", shooterId: playerId, origin: { x: ox, y: oy, z: oz }, direction: { x: dx, y: dy, z: dz } },
+              playerId,
+            );
+
             if (victimId) {
               const newPosition = this.registry.respawnPlayer(victimId);
               if (newPosition) {

@@ -2,6 +2,7 @@ import { useGameStore } from "../store/gameStore";
 import { Environment } from "./Environment";
 import { LocalPlayer } from "./LocalPlayer";
 import { RemotePlayer } from "./RemotePlayer";
+import { TracerManager } from "./TracerManager";
 
 interface Props {
   isLocked: boolean;
@@ -19,6 +20,7 @@ export function Scene({ isLocked, sendMove, sendShoot }: Props) {
       {Array.from(remotePlayers.values()).map((player) => (
         <RemotePlayer key={player.id} player={player} />
       ))}
+      <TracerManager />
     </>
   );
 }
