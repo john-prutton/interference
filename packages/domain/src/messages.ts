@@ -73,6 +73,19 @@ export interface ServerShotFiredMessage {
   direction: Vec3;
 }
 
+export interface ServerDamagedMessage {
+  type: "damaged";
+  shooterId: string;
+  victimId: string;
+  damage: number;
+}
+
+export interface ServerMatchEndMessage {
+  type: "match_end";
+  winnerId: string;
+  winnerKills: number;
+}
+
 export type ServerMessage =
   | ServerWelcomeMessage
   | ServerPlayerJoinedMessage
@@ -80,4 +93,6 @@ export type ServerMessage =
   | ServerWorldStateMessage
   | ServerHitMessage
   | ServerPongMessage
-  | ServerShotFiredMessage;
+  | ServerShotFiredMessage
+  | ServerDamagedMessage
+  | ServerMatchEndMessage;

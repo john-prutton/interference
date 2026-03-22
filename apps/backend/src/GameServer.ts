@@ -16,9 +16,12 @@ function rayHitsSphere(
   return distSq <= r * r;
 }
 
+const KILLS_TO_WIN = 20;
+
 export class GameServer {
   private wss: WebSocketServer;
   private registry: PlayerRegistry;
+  private matchActive = true;
 
   constructor(port: number, host = "0.0.0.0") {
     this.registry = new PlayerRegistry();
@@ -116,9 +119,29 @@ export class GameServer {
                 if (newPosition) {
                   this.registry.addKill(playerId);
                   this.registry.broadcast({ type: "hit", shooterId: playerId, victimId, newPosition });
+                  // Match win check
+                  if (this.matchActive) {
+                    const winner = this.registry.getState(playerId);
+                    if (winner && winner.kills >= KILLS_TO_WIN) {
+                      this.matchActive = false;
+                      this.registry.broadcast({ type: "match_end", winnerId: playerId, winnerKills: winner.kills });
+                      setTimeout(() => {
+                        this.registry.resetMatch();
+                        this.matchActive = true;
+                        this.registry.broadcast({
+                          type: "world_state",
+                          players: this.registry.getAll(),
+                          serverTime: Date.now(),
+                        });
+                      }, 5000);
+                    }
+                  }
                 }
+              } else {
+                // Non-fatal hit — tell shooter their shot connected
+                this.registry.broadcast({ type: "damaged", shooterId: playerId, victimId, damage: 25 });
               }
-              // Broadcast immediately after any hit so victims see HP drop without waiting for tick.
+              // Broadcast world_state immediately so victims see HP drop without waiting for tick.
               this.registry.broadcast({
                 type: "world_state",
                 players: this.registry.getAll(),

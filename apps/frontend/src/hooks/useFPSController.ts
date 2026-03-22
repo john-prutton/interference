@@ -56,6 +56,7 @@ export function useFPSController({ isLocked, sendMove, sendShoot }: Props) {
     };
     const onMouseDown = (e: MouseEvent) => {
       if (!isLockedRef.current || e.button !== 0) return;
+      if (useGameStore.getState().respawnAt > 0) return; // can't shoot while dead
       const now = Date.now();
       if (now - lastShotAt.current < SHOOT_COOLDOWN_MS) return;
       lastShotAt.current = now;
@@ -93,16 +94,18 @@ export function useFPSController({ isLocked, sendMove, sendShoot }: Props) {
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.1);
 
-    // Apply pending respawn from server (triggered by a hit)
-    const { pendingRespawn, setPendingRespawn } = useGameStore.getState();
-    if (pendingRespawn) {
+    // Respawn countdown: teleport when the timer expires
+    const { pendingRespawn, respawnAt, setPendingRespawn, setRespawnAt } = useGameStore.getState();
+    const isDead = respawnAt > 0;
+    if (isDead && pendingRespawn && Date.now() >= respawnAt) {
       position.current.set(pendingRespawn.x, pendingRespawn.y, pendingRespawn.z);
       verticalVelocity.current = 0;
       setPendingRespawn(null);
+      setRespawnAt(0);
     }
 
     let dx = 0, dz = 0;
-    if (isLockedRef.current) {
+    if (isLockedRef.current && !isDead) {
       const k = keys.current;
       const forward = (k.has("KeyW") ? 1 : 0) - (k.has("KeyS") ? 1 : 0);
       const right = (k.has("KeyD") ? 1 : 0) - (k.has("KeyA") ? 1 : 0);

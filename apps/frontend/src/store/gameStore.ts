@@ -16,6 +16,13 @@ export interface Notification {
   createdAt: number;
 }
 
+export interface DamageNumber {
+  id: number;
+  value: number;
+  fatal: boolean;
+  createdAt: number;
+}
+
 interface GameStore {
   localPlayerId: string | null;
   localPlayerColor: string | null;
@@ -29,6 +36,10 @@ interface GameStore {
   connected: boolean;
   pendingRespawn: Vec3 | null;
   hitAt: number;
+  hitMarkerAt: number;
+  damageNumbers: DamageNumber[];
+  respawnAt: number;
+  matchWinner: { id: string; kills: number } | null;
   notifications: Notification[];
 
   setLocalPlayer: (id: string, color: string) => void;
@@ -41,6 +52,10 @@ interface GameStore {
   removeRemotePlayer: (id: string) => void;
   setPendingRespawn: (pos: Vec3 | null) => void;
   setHitAt: (t: number) => void;
+  setHitMarker: () => void;
+  addDamageNumber: (value: number, fatal: boolean) => void;
+  setRespawnAt: (t: number) => void;
+  setMatchWinner: (w: { id: string; kills: number } | null) => void;
   addNotification: (text: string) => void;
 }
 
@@ -59,6 +74,10 @@ export const useGameStore = create<GameStore>((set) => ({
   connected: false,
   pendingRespawn: null,
   hitAt: 0,
+  hitMarkerAt: 0,
+  damageNumbers: [],
+  respawnAt: 0,
+  matchWinner: null,
   notifications: [],
 
   setLocalPlayer: (id, color) =>
@@ -98,6 +117,20 @@ export const useGameStore = create<GameStore>((set) => ({
   setPendingRespawn: (pos) => set({ pendingRespawn: pos }),
 
   setHitAt: (t) => set({ hitAt: t }),
+
+  setHitMarker: () => set({ hitMarkerAt: Date.now() }),
+
+  addDamageNumber: (value, fatal) =>
+    set((state) => ({
+      damageNumbers: [
+        ...state.damageNumbers.slice(-5),
+        { id: notifId++, value, fatal, createdAt: Date.now() },
+      ],
+    })),
+
+  setRespawnAt: (t) => set({ respawnAt: t }),
+
+  setMatchWinner: (w) => set({ matchWinner: w }),
 
   addNotification: (text) =>
     set((state) => ({

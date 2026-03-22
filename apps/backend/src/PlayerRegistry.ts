@@ -130,6 +130,14 @@ export class PlayerRegistry {
     return spawn;
   }
 
+  resetMatch(): void {
+    for (const [, entry] of this.players) {
+      const spawn = SPAWN_POINTS[Math.floor(Math.random() * SPAWN_POINTS.length)]!;
+      entry.state = { ...entry.state, hp: 100, kills: 0, deaths: 0, position: { ...spawn } };
+      entry.history = [];
+    }
+  }
+
   getAll(): PlayerState[] {
     return Array.from(this.players.values()).map((e) => e.state);
   }

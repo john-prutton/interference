@@ -54,15 +54,32 @@ export function useWebSocket() {
               const localP = msg.players.find((p) => p.id === s.localPlayerId);
               if (localP) s.setLocalStats(localP.hp, localP.kills, localP.deaths);
             }
+            // Detect match reset: winner's kills dropped to 0 → hide end screen
+            if (s.matchWinner) {
+              const w = msg.players.find((p) => p.id === s.matchWinner!.id);
+              if (w && w.kills === 0) s.setMatchWinner(null);
+            }
             break;
           case "hit":
             if (msg.victimId === s.localPlayerId) {
               s.setPendingRespawn(msg.newPosition);
+              s.setRespawnAt(Date.now() + 3000);
               s.setHitAt(Date.now());
               s.addNotification("You were eliminated!");
             } else if (msg.shooterId === s.localPlayerId) {
+              s.setHitMarker();
+              s.addDamageNumber(25, true);
               s.addNotification("Enemy eliminated!");
             }
+            break;
+          case "damaged":
+            if (msg.shooterId === s.localPlayerId) {
+              s.setHitMarker();
+              s.addDamageNumber(msg.damage, false);
+            }
+            break;
+          case "match_end":
+            s.setMatchWinner({ id: msg.winnerId, kills: msg.winnerKills });
             break;
           case "pong": {
             const rtt = Date.now() - msg.clientTime;
