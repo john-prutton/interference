@@ -1,3 +1,4 @@
+import { Context, Effect, Layer, Option, Ref } from "effect";
 import { v4 as uuidv4 } from "uuid";
 import type WebSocket from "ws";
 import type { PlayerState, ServerMessage, Vec3 } from "@interference/domain";
@@ -38,128 +39,188 @@ interface PlayerEntry {
   history: HistoryEntry[];
 }
 
-export class PlayerRegistry {
-  private players = new Map<string, PlayerEntry>();
-
-  add(ws: WebSocket): string {
-    const id = uuidv4();
-    const color = PLAYER_COLORS[this.players.size % PLAYER_COLORS.length] ?? "#ffffff";
-    const state: PlayerState = {
-      id,
-      position: { x: 0, y: 1, z: 0 },
-      yaw: 0,
-      pitch: 0,
-      color,
-      hp: 100,
-      kills: 0,
-      deaths: 0,
-    };
-    this.players.set(id, { state, ws, history: [] });
-    return id;
-  }
-
-  remove(id: string): void {
-    this.players.delete(id);
-  }
-
-  updateState(id: string, partial: Partial<Pick<PlayerState, "position" | "yaw" | "pitch">>): void {
-    const entry = this.players.get(id);
-    if (!entry) return;
-    entry.state = { ...entry.state, ...partial };
-
-    // Record position history for lag compensation
-    const now = Date.now();
-    entry.history.push({ serverTime: now, position: { ...entry.state.position } });
-    // Evict entries older than HISTORY_MAX_AGE_MS
-    const cutoff = now - HISTORY_MAX_AGE_MS;
-    let i = 0;
-    while (i < entry.history.length && (entry.history[i]?.serverTime ?? 0) < cutoff) i++;
-    if (i > 0) entry.history.splice(0, i);
-  }
-
-  /**
-   * Returns the interpolated position of a player at a given server timestamp.
-   * Read-only — does not mutate any state.
-   */
-  getPositionAt(id: string, targetServerTime: number): Vec3 | undefined {
-    const entry = this.players.get(id);
-    if (!entry) return undefined;
-    const h = entry.history;
-    if (h.length === 0) return { ...entry.state.position };
-    if (targetServerTime <= (h[0]?.serverTime ?? 0)) return { ...h[0]?.position } as Vec3;
-    if (targetServerTime >= (h[h.length - 1]?.serverTime ?? 0)) return { ...entry.state.position };
-
-    // Binary search for the bracketing pair
-    let lo = 0, hi = h.length - 1;
-    while (hi - lo > 1) {
-      const mid = (lo + hi) >> 1;
-      if ((h[mid]?.serverTime ?? 0) <= targetServerTime) lo = mid;
-      else hi = mid;
-    }
-    const a = h[lo]!, b = h[hi]!;
-    const t = (targetServerTime - a.serverTime) / (b.serverTime - a.serverTime);
-    return {
-      x: a.position.x + (b.position.x - a.position.x) * t,
-      y: a.position.y + (b.position.y - a.position.y) * t,
-      z: a.position.z + (b.position.z - a.position.z) * t,
-    };
-  }
-
-  /** Returns true if the player's HP just reached 0 (killed). */
-  damagePlayer(id: string, amount: number): boolean {
-    const entry = this.players.get(id);
-    if (!entry) return false;
-    const newHp = Math.max(0, entry.state.hp - amount);
-    entry.state = { ...entry.state, hp: newHp };
-    return newHp === 0;
-  }
-
-  addKill(id: string): void {
-    const entry = this.players.get(id);
-    if (!entry) return;
-    entry.state = { ...entry.state, kills: entry.state.kills + 1 };
-  }
-
-  respawnPlayer(id: string): Vec3 | undefined {
-    const entry = this.players.get(id);
-    if (!entry) return undefined;
-    const spawn = SPAWN_POINTS[Math.floor(Math.random() * SPAWN_POINTS.length)]!;
-    // Mutate position directly — intentionally NOT recorded in history so in-flight
-    // shots still test against pre-respawn positions.
-    entry.state = { ...entry.state, position: { ...spawn }, hp: 100, deaths: entry.state.deaths + 1 };
-    return spawn;
-  }
-
-  resetMatch(): void {
-    for (const [, entry] of this.players) {
-      const spawn = SPAWN_POINTS[Math.floor(Math.random() * SPAWN_POINTS.length)]!;
-      entry.state = { ...entry.state, hp: 100, kills: 0, deaths: 0, position: { ...spawn } };
-      entry.history = [];
-    }
-  }
-
-  getAll(): PlayerState[] {
-    return Array.from(this.players.values()).map((e) => e.state);
-  }
-
-  getState(id: string): PlayerState | undefined {
-    return this.players.get(id)?.state;
-  }
-
-  broadcast(message: ServerMessage, excludeId?: string): void {
-    const data = JSON.stringify(message);
-    for (const [id, entry] of this.players) {
-      if (id === excludeId) continue;
-      if (entry.ws.readyState === 1 /* OPEN */) {
-        entry.ws.send(data);
-      }
-    }
-  }
-
-  sendTo(id: string, message: ServerMessage): void {
-    const entry = this.players.get(id);
-    if (entry && entry.ws.readyState === 1) {
-      entry.ws.send(JSON.stringify(message));
-    }
-  }
+export interface PlayerRegistryService {
+  readonly add: (ws: WebSocket) => Effect.Effect<string>;
+  readonly remove: (id: string) => Effect.Effect<void>;
+  readonly updateState: (
+    id: string,
+    partial: Partial<Pick<PlayerState, "position" | "yaw" | "pitch">>,
+  ) => Effect.Effect<void>;
+  readonly getPositionAt: (id: string, targetServerTime: number) => Effect.Effect<Option.Option<Vec3>>;
+  readonly damagePlayer: (id: string, amount: number) => Effect.Effect<boolean>;
+  readonly addKill: (id: string) => Effect.Effect<void>;
+  readonly respawnPlayer: (id: string) => Effect.Effect<Option.Option<Vec3>>;
+  readonly resetMatch: () => Effect.Effect<void>;
+  readonly getAll: () => Effect.Effect<readonly PlayerState[]>;
+  readonly getState: (id: string) => Effect.Effect<Option.Option<PlayerState>>;
+  readonly broadcast: (message: ServerMessage, excludeId?: string) => Effect.Effect<void>;
+  readonly sendTo: (id: string, message: ServerMessage) => Effect.Effect<void>;
 }
+
+export class PlayerRegistry extends Context.Tag("PlayerRegistry")<
+  PlayerRegistry,
+  PlayerRegistryService
+>() {}
+
+export const PlayerRegistryLive = Layer.effect(
+  PlayerRegistry,
+  Effect.gen(function* () {
+    const playersRef = yield* Ref.make(new Map<string, PlayerEntry>());
+
+    const add = (ws: WebSocket): Effect.Effect<string> =>
+      Ref.modify(playersRef, (players) => {
+        const id = uuidv4();
+        const color = PLAYER_COLORS[players.size % PLAYER_COLORS.length] ?? "#ffffff";
+        const state: PlayerState = {
+          id,
+          position: { x: 0, y: 1, z: 0 },
+          yaw: 0,
+          pitch: 0,
+          color,
+          hp: 100,
+          kills: 0,
+          deaths: 0,
+        };
+        const updated = new Map(players);
+        updated.set(id, { state, ws, history: [] });
+        return [id, updated] as const;
+      });
+
+    const remove = (id: string): Effect.Effect<void> =>
+      Ref.update(playersRef, (players) => {
+        const updated = new Map(players);
+        updated.delete(id);
+        return updated;
+      });
+
+    const updateState = (
+      id: string,
+      partial: Partial<Pick<PlayerState, "position" | "yaw" | "pitch">>,
+    ): Effect.Effect<void> =>
+      Ref.update(playersRef, (players) => {
+        const entry = players.get(id);
+        if (!entry) return players;
+        const now = Date.now();
+        const newHistory = [...entry.history, { serverTime: now, position: { ...entry.state.position } }];
+        const cutoff = now - HISTORY_MAX_AGE_MS;
+        const trimmed = newHistory.filter((h) => h.serverTime >= cutoff);
+        const updated = new Map(players);
+        updated.set(id, {
+          ...entry,
+          state: { ...entry.state, ...partial },
+          history: trimmed,
+        });
+        return updated;
+      });
+
+    const getPositionAt = (id: string, targetServerTime: number): Effect.Effect<Option.Option<Vec3>> =>
+      Ref.get(playersRef).pipe(
+        Effect.map((players) => {
+          const entry = players.get(id);
+          if (!entry) return Option.none<Vec3>();
+          const h = entry.history;
+          if (h.length === 0) return Option.some({ ...entry.state.position });
+          if (targetServerTime <= (h[0]?.serverTime ?? 0)) return Option.fromNullable(h[0] ? { ...h[0].position } : undefined);
+          if (targetServerTime >= (h[h.length - 1]?.serverTime ?? 0)) return Option.some({ ...entry.state.position });
+
+          // Binary search for the bracketing pair
+          let lo = 0, hi = h.length - 1;
+          while (hi - lo > 1) {
+            const mid = (lo + hi) >> 1;
+            if ((h[mid]?.serverTime ?? 0) <= targetServerTime) lo = mid;
+            else hi = mid;
+          }
+          const a = h[lo];
+          const b = h[hi];
+          if (!a || !b) return Option.some({ ...entry.state.position });
+          const t = (targetServerTime - a.serverTime) / (b.serverTime - a.serverTime);
+          return Option.some({
+            x: a.position.x + (b.position.x - a.position.x) * t,
+            y: a.position.y + (b.position.y - a.position.y) * t,
+            z: a.position.z + (b.position.z - a.position.z) * t,
+          });
+        }),
+      );
+
+    const damagePlayer = (id: string, amount: number): Effect.Effect<boolean> =>
+      Ref.modify(playersRef, (players) => {
+        const entry = players.get(id);
+        if (!entry) return [false, players] as const;
+        const newHp = Math.max(0, entry.state.hp - amount);
+        const updated = new Map(players);
+        updated.set(id, { ...entry, state: { ...entry.state, hp: newHp } });
+        return [newHp === 0, updated] as const;
+      });
+
+    const addKill = (id: string): Effect.Effect<void> =>
+      Ref.update(playersRef, (players) => {
+        const entry = players.get(id);
+        if (!entry) return players;
+        const updated = new Map(players);
+        updated.set(id, { ...entry, state: { ...entry.state, kills: entry.state.kills + 1 } });
+        return updated;
+      });
+
+    const respawnPlayer = (id: string): Effect.Effect<Option.Option<Vec3>> =>
+      Ref.modify(playersRef, (players) => {
+        const entry = players.get(id);
+        if (!entry) return [Option.none<Vec3>(), players] as const;
+        const spawn = SPAWN_POINTS[Math.floor(Math.random() * SPAWN_POINTS.length)]!;
+        const updated = new Map(players);
+        updated.set(id, {
+          ...entry,
+          state: { ...entry.state, position: { ...spawn }, hp: 100, deaths: entry.state.deaths + 1 },
+        });
+        return [Option.some(spawn), updated] as const;
+      });
+
+    const resetMatch = (): Effect.Effect<void> =>
+      Ref.update(playersRef, (players) => {
+        const updated = new Map(players);
+        for (const [id, entry] of players) {
+          const spawn = SPAWN_POINTS[Math.floor(Math.random() * SPAWN_POINTS.length)]!;
+          updated.set(id, {
+            ...entry,
+            state: { ...entry.state, hp: 100, kills: 0, deaths: 0, position: { ...spawn } },
+            history: [],
+          });
+        }
+        return updated;
+      });
+
+    const getAll = (): Effect.Effect<readonly PlayerState[]> =>
+      Ref.get(playersRef).pipe(
+        Effect.map((players) => Array.from(players.values()).map((e) => e.state)),
+      );
+
+    const getState = (id: string): Effect.Effect<Option.Option<PlayerState>> =>
+      Ref.get(playersRef).pipe(
+        Effect.map((players) => Option.fromNullable(players.get(id)?.state)),
+      );
+
+    const broadcast = (message: ServerMessage, excludeId?: string): Effect.Effect<void> =>
+      Ref.get(playersRef).pipe(
+        Effect.map((players) => {
+          const data = JSON.stringify(message);
+          for (const [id, entry] of players) {
+            if (id === excludeId) continue;
+            if (entry.ws.readyState === 1 /* OPEN */) {
+              entry.ws.send(data);
+            }
+          }
+        }),
+      );
+
+    const sendTo = (id: string, message: ServerMessage): Effect.Effect<void> =>
+      Ref.get(playersRef).pipe(
+        Effect.map((players) => {
+          const entry = players.get(id);
+          if (entry && entry.ws.readyState === 1) {
+            entry.ws.send(JSON.stringify(message));
+          }
+        }),
+      );
+
+    return { add, remove, updateState, getPositionAt, damagePlayer, addKill, respawnPlayer, resetMatch, getAll, getState, broadcast, sendTo };
+  }),
+);

@@ -2,15 +2,16 @@
   "name": "@interference/backend",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --env-file .env.local --env-file .env.dev src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@interference/domain": "workspace:*",
-    "dotenv": "^16.4.5",
+    "effect": "^3.13.0",
     "ws": "^8.18.0",
     "uuid": "^11.0.3"
   },

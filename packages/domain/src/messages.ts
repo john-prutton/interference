@@ -1,98 +1,127 @@
-import type { PlayerState, Vec3 } from "./player";
+import { Schema } from "effect";
+import { Vec3Schema, PlayerStateSchema } from "./player.js";
 
-export interface ClientJoinMessage {
-  type: "join";
-}
+// ── Client messages ───────────────────────────────────────────────────────────
 
-export interface ClientMoveMessage {
-  type: "move";
-  position: PlayerState["position"];
-  yaw: PlayerState["yaw"];
-  pitch: PlayerState["pitch"];
-}
+const ClientJoinSchema = Schema.Struct({
+  type: Schema.Literal("join"),
+});
 
-export interface ClientShootMessage {
-  type: "shoot";
-  yaw: number;
-  pitch: number;
+const ClientMoveSchema = Schema.Struct({
+  type: Schema.Literal("move"),
+  position: Vec3Schema,
+  yaw: Schema.Number,
+  pitch: Schema.Number,
+});
+
+const ClientShootSchema = Schema.Struct({
+  type: Schema.Literal("shoot"),
+  yaw: Schema.Number,
+  pitch: Schema.Number,
   /** Client's best estimate of server time when the shot was fired (Date.now() + clockOffset). */
-  shootTime: number;
-}
+  shootTime: Schema.Number,
+});
 
-export interface ClientPingMessage {
-  type: "ping";
-  clientTime: number;
-}
+const ClientPingSchema = Schema.Struct({
+  type: Schema.Literal("ping"),
+  clientTime: Schema.Number,
+});
 
-export type ClientMessage =
-  | ClientJoinMessage
-  | ClientMoveMessage
-  | ClientShootMessage
-  | ClientPingMessage;
+export const ClientMessageSchema = Schema.Union(
+  ClientJoinSchema,
+  ClientMoveSchema,
+  ClientShootSchema,
+  ClientPingSchema,
+);
+export type ClientMessage = Schema.Schema.Type<typeof ClientMessageSchema>;
 
-export interface ServerWelcomeMessage {
-  type: "welcome";
-  yourId: string;
-  yourColor: string;
-  players: PlayerState[];
-}
+export type ClientJoinMessage = Schema.Schema.Type<typeof ClientJoinSchema>;
+export type ClientMoveMessage = Schema.Schema.Type<typeof ClientMoveSchema>;
+export type ClientShootMessage = Schema.Schema.Type<typeof ClientShootSchema>;
+export type ClientPingMessage = Schema.Schema.Type<typeof ClientPingSchema>;
 
-export interface ServerPlayerJoinedMessage {
-  type: "player_joined";
-  player: PlayerState;
-}
+// ── Server messages ───────────────────────────────────────────────────────────
 
-export interface ServerPlayerLeftMessage {
-  type: "player_left";
-  playerId: string;
-}
+const ServerWelcomeSchema = Schema.Struct({
+  type: Schema.Literal("welcome"),
+  yourId: Schema.String,
+  yourColor: Schema.String,
+  players: Schema.Array(PlayerStateSchema),
+});
 
-export interface ServerWorldStateMessage {
-  type: "world_state";
-  players: PlayerState[];
-  serverTime: number;
-}
+const ServerPlayerJoinedSchema = Schema.Struct({
+  type: Schema.Literal("player_joined"),
+  player: PlayerStateSchema,
+});
 
-export interface ServerHitMessage {
-  type: "hit";
-  shooterId: string;
-  victimId: string;
-  newPosition: Vec3;
-}
+const ServerPlayerLeftSchema = Schema.Struct({
+  type: Schema.Literal("player_left"),
+  playerId: Schema.String,
+});
 
-export interface ServerPongMessage {
-  type: "pong";
-  clientTime: number;
-  serverTime: number;
-}
+const ServerWorldStateSchema = Schema.Struct({
+  type: Schema.Literal("world_state"),
+  players: Schema.Array(PlayerStateSchema),
+  serverTime: Schema.Number,
+});
 
-export interface ServerShotFiredMessage {
-  type: "shot_fired";
-  shooterId: string;
-  origin: Vec3;
-  direction: Vec3;
-}
+const ServerHitSchema = Schema.Struct({
+  type: Schema.Literal("hit"),
+  shooterId: Schema.String,
+  victimId: Schema.String,
+  newPosition: Vec3Schema,
+});
 
-export interface ServerDamagedMessage {
-  type: "damaged";
-  shooterId: string;
-  victimId: string;
-  damage: number;
-}
+const ServerPongSchema = Schema.Struct({
+  type: Schema.Literal("pong"),
+  clientTime: Schema.Number,
+  serverTime: Schema.Number,
+});
 
-export interface ServerMatchEndMessage {
-  type: "match_end";
-  winnerId: string;
-  winnerKills: number;
-}
+const ServerShotFiredSchema = Schema.Struct({
+  type: Schema.Literal("shot_fired"),
+  shooterId: Schema.String,
+  origin: Vec3Schema,
+  direction: Vec3Schema,
+});
 
-export type ServerMessage =
-  | ServerWelcomeMessage
-  | ServerPlayerJoinedMessage
-  | ServerPlayerLeftMessage
-  | ServerWorldStateMessage
-  | ServerHitMessage
-  | ServerPongMessage
-  | ServerShotFiredMessage
-  | ServerDamagedMessage
-  | ServerMatchEndMessage;
+const ServerDamagedSchema = Schema.Struct({
+  type: Schema.Literal("damaged"),
+  shooterId: Schema.String,
+  victimId: Schema.String,
+  damage: Schema.Number,
+});
+
+const ServerMatchEndSchema = Schema.Struct({
+  type: Schema.Literal("match_end"),
+  winnerId: Schema.String,
+  winnerKills: Schema.Number,
+});
+
+export const ServerMessageSchema = Schema.Union(
+  ServerWelcomeSchema,
+  ServerPlayerJoinedSchema,
+  ServerPlayerLeftSchema,
+  ServerWorldStateSchema,
+  ServerHitSchema,
+  ServerPongSchema,
+  ServerShotFiredSchema,
+  ServerDamagedSchema,
+  ServerMatchEndSchema,
+);
+export type ServerMessage = Schema.Schema.Type<typeof ServerMessageSchema>;
+
+export type ServerWelcomeMessage = Schema.Schema.Type<typeof ServerWelcomeSchema>;
+export type ServerPlayerJoinedMessage = Schema.Schema.Type<typeof ServerPlayerJoinedSchema>;
+export type ServerPlayerLeftMessage = Schema.Schema.Type<typeof ServerPlayerLeftSchema>;
+export type ServerWorldStateMessage = Schema.Schema.Type<typeof ServerWorldStateSchema>;
+export type ServerHitMessage = Schema.Schema.Type<typeof ServerHitSchema>;
+export type ServerPongMessage = Schema.Schema.Type<typeof ServerPongSchema>;
+export type ServerShotFiredMessage = Schema.Schema.Type<typeof ServerShotFiredSchema>;
+export type ServerDamagedMessage = Schema.Schema.Type<typeof ServerDamagedSchema>;
+export type ServerMatchEndMessage = Schema.Schema.Type<typeof ServerMatchEndSchema>;
+
+// ── Decoders ──────────────────────────────────────────────────────────────────
+
+export const decodeClientMessage = Schema.decodeUnknown(ClientMessageSchema);
+export const decodeServerMessage = Schema.decodeUnknown(ServerMessageSchema);

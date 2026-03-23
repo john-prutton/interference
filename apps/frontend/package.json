@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@interference/domain": "workspace:*",
+    "effect": "^3.13.0",
     "@react-three/drei": "^9.120.0",
     "@react-three/fiber": "^8.17.10",
     "react": "^18.3.1",
