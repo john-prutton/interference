@@ -1,3 +1,4 @@
+import { runMain } from "@effect/platform-node/NodeRuntime";
 import { Effect, Layer } from "effect";
 import { GameServer, GameServerLive } from "./GameServer.js";
 import { PlayerRegistryLive } from "./PlayerRegistry.js";
@@ -13,4 +14,4 @@ const program = Effect.gen(function* () {
   yield* server.run;
 });
 
-Effect.runFork(program.pipe(Effect.provide(AppLayer)));
+runMain(program.pipe(Effect.provide(AppLayer)));
