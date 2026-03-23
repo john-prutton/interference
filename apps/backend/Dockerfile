@@ -18,6 +18,7 @@ FROM deps AS builder
 
 COPY packages/domain/ packages/domain/
 COPY apps/backend/    apps/backend/
+COPY tsconfig.base.json ./
 COPY turbo.json       ./
 
 # Build shared domain types, then the backend.

@@ -15,10 +15,10 @@ RUN pnpm install --frozen-lockfile
 # ── Stage 2: build domain + frontend ─────────────────────────────────────────
 FROM deps AS builder
 
-COPY packages/domain/ packages/domain/
-COPY apps/frontend/   apps/frontend/
+COPY packages/domain/  packages/domain/
+COPY apps/frontend/    apps/frontend/
 COPY tsconfig.base.json ./
-COPY turbo.json       ./
+COPY turbo.json        ./
 
 # Build shared domain types, then the frontend.
 RUN pnpm --filter @interference/domain build
