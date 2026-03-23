@@ -6,20 +6,33 @@ import { emitTracer } from "../map/mapData";
 /** Client-to-server clock offset: add to Date.now() to get an estimate of server time. */
 export const clockOffsetRef = { current: 0 };
 
+function getWsUrl(): string {
+  const env = import.meta.env.VITE_WS_URL;
+  if (env) return env;
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${window.location.host}/ws`;
+}
+
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
   // Only subscribe to `connected` — avoids re-rendering App on every position update
   const connected = useGameStore((s) => s.connected);
 
   useEffect(() => {
-    const ws = new WebSocket(`ws://${window.location.host}/ws`);
+    const ws = new WebSocket(getWsUrl());
     wsRef.current = ws;
 
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: "join" } satisfies ClientMessage));
-      // Measure RTT to estimate clock offset (one sample is sufficient for a game session)
       ws.send(JSON.stringify({ type: "ping", clientTime: Date.now() } satisfies ClientMessage));
     };
+
+    // Send periodic pings every 2 seconds
+    const pingInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "ping", clientTime: Date.now() } satisfies ClientMessage));
+      }
+    }, 2000);
 
     ws.onmessage = (event: MessageEvent) => {
       try {
@@ -84,6 +97,7 @@ export function useWebSocket() {
           case "pong": {
             const rtt = Date.now() - msg.clientTime;
             clockOffsetRef.current = msg.serverTime + rtt / 2 - Date.now();
+            s.setPing(rtt);
             break;
           }
           case "shot_fired":
@@ -98,7 +112,10 @@ export function useWebSocket() {
     ws.onclose = () => useGameStore.getState().setConnected(false);
     ws.onerror = () => useGameStore.getState().setConnected(false);
 
-    return () => ws.close();
+    return () => {
+      clearInterval(pingInterval);
+      ws.close();
+    };
   }, []);
 
   const sendMove = useCallback(

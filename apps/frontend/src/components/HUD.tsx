@@ -16,6 +16,7 @@ export function HUD({ isLocked, requestLock, connected }: Props) {
   const localHp = useGameStore((s) => s.localHp);
   const respawnAt = useGameStore((s) => s.respawnAt);
   const matchWinner = useGameStore((s) => s.matchWinner);
+  const ping = useGameStore((s) => s.ping);
   const [showScoreboard, setShowScoreboard] = useState(false);
   const [tick, setTick] = useState(0); // drives animation re-renders
 
@@ -311,18 +312,27 @@ export function HUD({ isLocked, requestLock, connected }: Props) {
             </div>
           </div>
 
-          {/* Status */}
+          {/* Status + Ping */}
           <div
             style={{
               position: "absolute",
               bottom: 12,
               left: 12,
-              color: connected ? "#2ecc71" : "#e74c3c",
               fontSize: 12,
               fontFamily: "monospace",
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
             }}
           >
-            {connected ? "● Connected" : "● Disconnected"}
+            <span style={{ color: connected ? "#2ecc71" : "#e74c3c" }}>
+              {connected ? "● Connected" : "● Disconnected"}
+            </span>
+            {connected && (
+              <span style={{ color: ping < 80 ? "#2ecc71" : ping < 150 ? "#f39c12" : "#e74c3c" }}>
+                {ping}ms
+              </span>
+            )}
           </div>
 
           {/* Scoreboard */}
