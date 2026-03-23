@@ -5,3 +5,13 @@ dist/
 .env
 .env.local
 .DS_Store
+
+# tsc emit artifacts (frontend uses vite for bundling; tsc output in src/ is not needed)
+apps/frontend/src/**/*.js
+apps/frontend/src/**/*.js.map
+apps/frontend/src/**/*.d.ts
+apps/frontend/src/**/*.d.ts.map
+apps/frontend/vite.config.js
+apps/frontend/vite.config.js.map
+apps/frontend/vite.config.d.ts
+apps/frontend/vite.config.d.ts.map
